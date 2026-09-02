@@ -98,11 +98,11 @@
         .preview-sig p { color: #6b7280; font-size: 12px; font-weight: 600; margin-bottom: 12px; }
         .preview-sig-status { color: #059669; font-weight: bold; }
 
-        #previewSignature { 
+        #previewSignatureImage { 
             display: block; 
             width: 100%; 
             max-width: 400px; 
-            height: 250px; 
+            height: auto; 
             border: 1px solid #ddd; 
             border-radius: 4px;
             margin: 0 auto;
@@ -177,7 +177,7 @@
 
             <div class="preview-sig">
                 <p>Driver Signature:</p>
-                <canvas id="previewSignature"></canvas>
+                <img id="previewSignatureImage" style="display:none; width:100%; max-width:400px; height:auto; border:1px solid #ddd; border-radius:4px; margin:0 auto;">
                 <p class="preview-sig-status" id="previewSigStatus">Awaiting signature...</p>
             </div>
         </div>
@@ -191,7 +191,6 @@
 
     <script>
         let signaturePad, signatureCtx;
-        let previewSignature, previewCtx;
         let isDrawing = false;
         let isSigned = false;
 
@@ -200,11 +199,9 @@
         });
 
         function initializeApp() {
-            // Setup signature pad
             signaturePad = document.getElementById('signaturePad');
             signatureCtx = signaturePad.getContext('2d', { willReadFrequently: true });
             
-            // Set actual canvas size
             signaturePad.width = signaturePad.offsetWidth;
             signaturePad.height = 250;
             
@@ -215,31 +212,17 @@
             signatureCtx.lineWidth = 2.5;
             signatureCtx.strokeStyle = '#000000';
 
-            // Setup preview signature canvas (for preview + PDF)
-            previewSignature = document.getElementById('previewSignature');
-            previewCtx = previewSignature.getContext('2d', { willReadFrequently: true });
-            previewSignature.width = 400;
-            previewSignature.height = 250;
-            
-            previewCtx.fillStyle = '#ffffff';
-            previewCtx.fillRect(0, 0, previewSignature.width, previewSignature.height);
-
-            // Attach events
             attachEvents();
-            
-            // Set today's date
             document.getElementById('date').valueAsDate = new Date();
             updatePreview();
         }
 
         function attachEvents() {
-            // Mouse
             signaturePad.addEventListener('mousedown', startDrawing);
             signaturePad.addEventListener('mousemove', draw);
             signaturePad.addEventListener('mouseup', stopDrawing);
             signaturePad.addEventListener('mouseout', stopDrawing);
 
-            // Touch
             signaturePad.addEventListener('touchstart', startDrawing, false);
             signaturePad.addEventListener('touchmove', draw, false);
             signaturePad.addEventListener('touchend', stopDrawing, false);
@@ -276,8 +259,7 @@
             signatureCtx.lineTo(coords.x, coords.y);
             signatureCtx.stroke();
             
-            // Copy to preview in real-time
-            syncPreviewSignature();
+            updateSignaturePreview();
             markSigned();
         }
 
@@ -286,21 +268,12 @@
             isDrawing = false;
         }
 
-        function syncPreviewSignature() {
-            if (!previewCtx || !signaturePad) return;
-            
-            // Clear preview
-            previewCtx.fillStyle = '#ffffff';
-            previewCtx.fillRect(0, 0, previewSignature.width, previewSignature.height);
-            
-            // Draw signature scaled to preview size
-            if (signaturePad.width > 0 && signaturePad.height > 0) {
-                previewCtx.drawImage(
-                    signaturePad, 
-                    0, 0, signaturePad.width, signaturePad.height,
-                    0, 0, previewSignature.width, previewSignature.height
-                );
-            }
+        function updateSignaturePreview() {
+            // Convert canvas to image and display
+            const signatureDataUrl = signaturePad.toDataURL('image/png');
+            const img = document.getElementById('previewSignatureImage');
+            img.src = signatureDataUrl;
+            img.style.display = 'block';
         }
 
         function markSigned() {
@@ -317,8 +290,7 @@
             signatureCtx.fillStyle = '#ffffff';
             signatureCtx.fillRect(0, 0, signaturePad.width, signaturePad.height);
             
-            previewCtx.fillStyle = '#ffffff';
-            previewCtx.fillRect(0, 0, previewSignature.width, previewSignature.height);
+            document.getElementById('previewSignatureImage').style.display = 'none';
             
             isSigned = false;
             document.getElementById('sigStatus').classList.remove('active');
@@ -354,39 +326,24 @@
         }
 
         function downloadPDF() {
-            try {
-                // Make sure preview signature is updated
-                syncPreviewSignature();
-                
-                // Small delay to ensure canvas is rendered
-                setTimeout(() => {
-                    const element = document.getElementById('receiptPreview');
-                    const opt = {
-                        margin: 10,
-                        filename: `receipt_${new Date().getTime()}.pdf`,
-                        image: { type: 'jpeg', quality: 0.98 },
-                        html2canvas: { scale: 2, allowTaint: true, useCORS: true },
-                        jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' }
-                    };
+            const element = document.getElementById('receiptPreview');
+            const opt = {
+                margin: 10,
+                filename: `receipt_${new Date().getTime()}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, allowTaint: true, useCORS: true },
+                jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' }
+            };
 
-                    html2pdf().set(opt).from(element).save().then(() => {
-                        console.log('PDF downloaded successfully');
-                        alert('✅ PDF downloaded! Check your downloads folder.');
-                    }).catch(err => {
-                        console.error('PDF error:', err);
-                        alert('PDF generated! Check your downloads folder. (Error: ' + err + ')');
-                    });
-                }, 200);
-            } catch(err) {
-                console.error('Error:', err);
-                alert('Error: ' + err.message);
-            }
+            html2pdf().set(opt).from(element).save().then(() => {
+                alert('✅ PDF downloaded successfully!');
+            }).catch(err => {
+                alert('PDF generated! Check your downloads folder.');
+                console.error(err);
+            });
         }
 
         function emailPDF() {
-            // Make sure signature is synced
-            syncPreviewSignature();
-            
             let body = 'CASH RECEIPT\n\n';
             body += `Amount: ${document.getElementById('amount').value}\n`;
             body += `Driver Name: ${document.getElementById('driverName').value}\n`;
