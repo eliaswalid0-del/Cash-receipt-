@@ -272,8 +272,12 @@
             // Convert canvas to image and display
             const signatureDataUrl = signaturePad.toDataURL('image/png');
             const img = document.getElementById('previewSignatureImage');
-            img.src = signatureDataUrl;
-            img.style.display = 'block';
+            
+            if (signatureDataUrl && signatureDataUrl.length > 0) {
+                img.src = signatureDataUrl;
+                img.style.display = 'block';
+                console.log('Signature preview updated');
+            }
         }
 
         function markSigned() {
@@ -326,22 +330,12 @@
         }
 
         function downloadPDF() {
-            alert('📥 Preparing PDF...\n\n1. A print dialog will open\n2. Select "Save as PDF"\n3. Click Save\n\nYour receipt with signature will be saved!');
+            if (!isSigned) {
+                alert('❌ Please sign first!');
+                return;
+            }
             
-            // Hide buttons and header for cleaner PDF
-            document.querySelector('.header').style.display = 'none';
-            document.querySelector('.grid').style.display = 'none';
-            document.querySelector('.button-group').style.display = 'none';
-            
-            // Open print dialog
-            window.print();
-            
-            // Show elements again after print
-            setTimeout(() => {
-                document.querySelector('.header').style.display = 'block';
-                document.querySelector('.grid').style.display = 'grid';
-                document.querySelector('.button-group').style.display = 'flex';
-            }, 1000);
+            alert('📥 How to save as PDF:\n\n1. Long-press on the "CASH RECEIPT" section below\n2. Select "Save as PDF" or "Print to PDF"\n3. Save it!\n\nOr if a dialog appears, click "Save as PDF"');
         }
 
         function emailPDF() {
