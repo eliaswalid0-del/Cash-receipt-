@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Digital Cash Receipt</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        html, body {
+            width: 100%;
+            height: 100%;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(to bottom right, #f0f9ff, #e0e7ff);
+            padding: 20px;
+            overflow-x: hidden;
+        }
+
+        .container { max-width: 1200px; margin: 0 auto; width: 100%; }
+        
+        .header { text-align: center; margin-bottom: 30px; }
+        .header h1 { font-size: 28px; color: #1f2937; margin-bottom: 10px; }
+        .header p { color: #6b7280; font-size: 14px; }
+
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 30px; }
+        @media (max-width: 768px) { .grid { grid-template-columns: 1fr; } }
+
+        .card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            padding: 24px;
+        }
+
+        .card h2 { font-size: 20px; color: #1f2937; margin-bottom: 20px; }
+
+        .field-item { margin-bottom: 20px; }
+        .field-item label { display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 6px; }
+        .field-item input { width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px; }
+        .field-item input:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1); }
+
+        .add-section { border-top: 1px solid #e5e7eb; padding-top: 20px; margin-top: 20px; }
+        .add-section h3 { font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 10px; }
+        .add-inputs { display: flex; gap: 8px; }
+        .add-inputs input { flex: 1; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px; }
+        
+        .btn {
+            padding: 10px 16px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary { background: #3b82f6; color: white; }
+        .btn-primary:hover { background: #2563eb; }
+        .btn-danger { background: #ef4444; color: white; width: 100%; padding: 12px; font-size: 15px; }
+        .btn-danger:hover { background: #dc2626; }
+
+        .sig-label { font-size: 12px; color: #6b7280; margin-bottom: 10px; display: block; }
+        
+        .sig-box { 
+            border: 3px dashed #60a5fa; 
+            border-radius: 6px; 
+            overflow: hidden; 
+            margin-bottom: 12px;
+            background: white;
+            width: 100%;
+            touch-action: none;
+        }
+        
+        #canvas { 
+            display: block; 
+            width: 100%;
+            height: auto;
+            cursor: crosshair;
+            background: white;
+            touch-action: none;
+        }
+
+        .sig-status { margin-top: 12px; padding: 12px; background: #d1fae5; border: 1px solid #6ee7b7; border-radius: 6px; color: #047857; text-align: center; font-weight: 600; display: none; }
+        .sig-status.active { display: block; }
+
+        .preview {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            padding: 32px;
+            margin-bottom: 30px;
+        }
+
+        .preview h1 { font-size: 24px; font-weight: bold; color: #1f2937; text-align: center; margin-bottom: 8px; }
+        .preview-date { text-align: center; color: #6b7280; font-size: 12px; margin-bottom: 32px; }
+
+        .preview-field { display: flex; justify-content: space-between; border-bottom: 1px solid #e5e7eb; padding-bottom: 8px; margin-bottom: 12px; font-weight: 600; }
+        .preview-field span:last-child { color: #2563eb; }
+
+        .preview-sig { margin-top: 48px; padding-top: 32px; border-top: 1px solid #e5e7eb; text-align: center; }
+        .preview-sig p { color: #6b7280; font-size: 12px; font-weight: 600; margin-bottom: 12px; }
+        .preview-sig-status { color: #059669; font-weight: bold; }
+        .preview-sig-status.pending { color: #9ca3af; font-style: italic; }
+
+        .button-group { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+        .btn-large { padding: 12px 24px; font-size: 15px; }
+
+        .btn-success { background: #10b981; color: white; }
+        .btn-success:hover:not(:disabled) { background: #059669; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>💰 Digital Cash Receipt</h1>
+            <p>Driver Signature & Receipt</p>
+        </div>
+
+        <div class="grid">
+            <!-- LEFT: FORM -->
+            <div class="card">
+                <h2>Receipt Details</h2>
+                
+                <div class="field-item">
+                    <label>Amount</label>
+                    <input type="text" id="amount" placeholder="Enter amount">
+                </div>
+
+                <div class="field-item">
+                    <label>Driver Name</label>
+                    <input type="text" id="driverName" placeholder="Enter driver name">
+                </div>
+
+                <div class="field-item">
+                    <label>Date</label>
+                    <input type="date" id="date">
+                </div>
+
+                <div id="customFields"></div>
+
+                <div class="add-section">
+                    <h3>Add Custom Field</h3>
+                    <div class="add-inputs">
+                        <input type="text" id="customFieldName" placeholder="e.g., Vehicle ID">
+                        <button class="btn btn-primary" onclick="addCustomField()">+ Add</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RIGHT: SIGNATURE -->
+            <div class="card">
+                <h2>Driver Signature</h2>
+                <span class="sig-label">👆 Sign here</span>
+                
+                <div class="sig-box">
+                    <canvas id="canvas" width="300" height="250"></canvas>
+                </div>
+                
+                <button class="btn btn-danger" onclick="clearSig()">✕ Clear Signature</button>
+                <div class="sig-status" id="sigStatus">✓ Signature Received</div>
+            </div>
+        </div>
+
+        <!-- PREVIEW -->
+        <div class="preview">
+            <h1>CASH RECEIPT</h1>
+            <div class="preview-date" id="previewDate"></div>
+
+            <div id="previewFields"></div>
+
+            <div class="preview-sig">
+                <p>Driver Signature:</p>
+                <p class="preview-sig-status pending" id="previewSigStatus">Awaiting signature...</p>
+            </div>
+        </div>
+
+        <!-- BUTTONS -->
+        <div class="button-group">
+            <button class="btn btn-success btn-large" id="downloadBtn" onclick="downloadReceipt()" disabled>📥 Download</button>
+            <button class="btn btn-primary btn-large" id="emailBtn" onclick="emailReceipt()" disabled>📧 Email</button>
+        </div>
+    </div>
+
+    <script>
+        let canvas, ctx;
+        let isDrawing = false;
+        let isSigned = false;
+
+        // Wait for DOM to be fully loaded
+        window.addEventListener('load', function() {
+            setTimeout(initializeApp, 100);
+        });
+
+        function initializeApp() {
+            canvas = document.getElementById('canvas');
+            
+            if (!canvas) {
+                console.error('Canvas not found');
+                return;
+            }
+
+            ctx = canvas.getContext('2d', { willReadFrequently: true });
+            
+            // Set fixed canvas resolution
+            canvas.width = 300;
+            canvas.height = 250;
+            
+            // Make canvas fill its container width
+            canvas.style.width = '100%';
+            canvas.style.height = '250px';
+            canvas.style.display = 'block';
+
+            // Initialize drawing settings
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = '#000000';
+
+            // Clear canvas
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Attach events
+            attachCanvasEvents();
+            
+            // Set date
+            document.getElementById('date').valueAsDate = new Date();
+            
+            // Update preview
+            updatePreview();
+            
+            console.log('App initialized successfully');
+        }
+
+        function attachCanvasEvents() {
+            // Mouse events
+            canvas.addEventListener('mousedown', handleMouseDown);
+            canvas.addEventListener('mousemove', handleMouseMove);
+            canvas.addEventListener('mouseup', handleMouseUp);
+            canvas.addEventListener('mouseout', handleMouseUp);
+
+            // Touch events
+            canvas.addEventListener('touchstart', handleTouchStart, false);
+            canvas.addEventListener('touchmove', handleTouchMove, false);
+            canvas.addEventListener('touchend', handleTouchEnd, false);
+            canvas.addEventListener('touchcancel', handleTouchEnd, false);
+        }
+
+        function getMousePos(e) {
+            const rect = canvas.getBoundingClientRect();
+            return {
+                x: (e.clientX - rect.left) * (canvas.width / rect.width),
+                y: (e.clientY - rect.top) * (canvas.height / rect.height)
+            };
+        }
+
+        function getTouchPos(e) {
+            const touch = e.touches[0];
+            const rect = canvas.getBoundingClientRect();
+            return {
+                x: (touch.clientX - rect.left) * (canvas.width / rect.width),
+                y: (touch.clientY - rect.top) * (canvas.height / rect.height)
+            };
+        }
+
+        function handleMouseDown(e) {
+            isDrawing = true;
+            const pos = getMousePos(e);
+            ctx.beginPath();
+            ctx.moveTo(pos.x, pos.y);
+        }
+
+        function handleMouseMove(e) {
+            if (!isDrawing) return;
+            const pos = getMousePos(e);
+            ctx.lineTo(pos.x, pos.y);
+            ctx.stroke();
+            markSigned();
+        }
+
+        function handleMouseUp(e) {
+            isDrawing = false;
+        }
+
+        function handleTouchStart(e) {
+            e.preventDefault();
+            isDrawing = true;
+            const pos = getTouchPos(e);
+            ctx.beginPath();
+            ctx.moveTo(pos.x, pos.y);
+        }
+
+        function handleTouchMove(e) {
+            e.preventDefault();
+            if (!isDrawing) return;
+            const pos = getTouchPos(e);
+            ctx.lineTo(pos.x, pos.y);
+            ctx.stroke();
+            markSigned();
+        }
+
+        function handleTouchEnd(e) {
+            e.preventDefault();
+            isDrawing = false;
+        }
+
+        // Update preview on input change (delayed to allow initialization)
+        setTimeout(function() {
+            ['amount', 'driverName', 'date'].forEach(id => {
+                const elem = document.getElementById(id);
+                if (elem) {
+                    elem.addEventListener('input', updatePreview);
+                }
+            });
+        }, 200);
+
+        function updatePreview() {
+            let html = `
+                <div class="preview-field"><span>Amount:</span><span>${document.getElementById('amount').value || '—'}</span></div>
+                <div class="preview-field"><span>Driver Name:</span><span>${document.getElementById('driverName').value || '—'}</span></div>
+                <div class="preview-field"><span>Date:</span><span>${document.getElementById('date').value || '—'}</span></div>
+            `;
+            
+            document.getElementById('previewFields').innerHTML = html;
+            document.getElementById('previewDate').textContent = new Date().toLocaleString();
+        }
+
+        function addCustomField() {
+            const name = document.getElementById('customFieldName').value.trim();
+            if (!name) return;
+
+            const div = document.createElement('div');
+            div.className = 'field-item';
+            div.innerHTML = `
+                <label>${name}</label>
+                <input type="text" placeholder="Enter value" oninput="updatePreview()">
+            `;
+            document.getElementById('customFields').appendChild(div);
+            document.getElementById('customFieldName').value = '';
+            updatePreview();
+        }
+
+        function markSigned() {
+            if (!isSigned) {
+                isSigned = true;
+                document.getElementById('sigStatus').classList.add('active');
+                document.getElementById('previewSigStatus').textContent = '✓ Signed';
+                document.getElementById('previewSigStatus').classList.remove('pending');
+                document.getElementById('downloadBtn').disabled = false;
+                document.getElementById('emailBtn').disabled = false;
+            }
+        }
+
+        function clearSig() {
+            if (!ctx || !canvas) return;
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            isSigned = false;
+            document.getElementById('sigStatus').classList.remove('active');
+            document.getElementById('previewSigStatus').textContent = 'Awaiting signature...';
+            document.getElementById('previewSigStatus').classList.add('pending');
+            document.getElementById('downloadBtn').disabled = true;
+            document.getElementById('emailBtn').disabled = true;
+        }
+
+        function downloadReceipt() {
+            alert('📥 Receipt ready!\n\nRight-click → Save as (PDF or PNG)\nOr take a screenshot!');
+        }
+
+        function emailReceipt() {
+            let body = 'CASH RECEIPT\n\n';
+            body += `Amount: ${document.getElementById('amount').value}\n`;
+            body += `Driver Name: ${document.getElementById('driverName').value}\n`;
+            body += `Date: ${document.getElementById('date').value}\n`;
+            body += `\n✓ Driver Signature: Confirmed`;
+            window.location.href = `mailto:?subject=Cash Receipt&body=${encodeURIComponent(body)}`;
+        }
+
+        // Initial preview is called in initializeApp
+    </script>
+</body>
+</html>
