@@ -287,16 +287,20 @@
         }
 
         function syncPreviewSignature() {
-            // Copy signature to preview canvas
-            const imageData = signatureCtx.getImageData(0, 0, signaturePad.width, signaturePad.height);
+            if (!previewCtx || !signaturePad) return;
             
-            // Scale for preview
-            previewCtx.clearRect(0, 0, previewSignature.width, previewSignature.height);
+            // Clear preview
             previewCtx.fillStyle = '#ffffff';
             previewCtx.fillRect(0, 0, previewSignature.width, previewSignature.height);
             
-            // Draw scaled signature
-            previewCtx.drawImage(signaturePad, 0, 0, signaturePad.width, signaturePad.height, 0, 0, previewSignature.width, previewSignature.height);
+            // Draw signature scaled to preview size
+            if (signaturePad.width > 0 && signaturePad.height > 0) {
+                previewCtx.drawImage(
+                    signaturePad, 
+                    0, 0, signaturePad.width, signaturePad.height,
+                    0, 0, previewSignature.width, previewSignature.height
+                );
+            }
         }
 
         function markSigned() {
@@ -351,35 +355,45 @@
 
         function downloadPDF() {
             try {
-                const element = document.getElementById('receiptPreview');
-                const opt = {
-                    margin: 10,
-                    filename: `receipt_${new Date().getTime()}.pdf`,
-                    image: { type: 'jpeg', quality: 0.98 },
-                    html2canvas: { scale: 2 },
-                    jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' }
-                };
+                // Make sure preview signature is updated
+                syncPreviewSignature();
+                
+                // Small delay to ensure canvas is rendered
+                setTimeout(() => {
+                    const element = document.getElementById('receiptPreview');
+                    const opt = {
+                        margin: 10,
+                        filename: `receipt_${new Date().getTime()}.pdf`,
+                        image: { type: 'jpeg', quality: 0.98 },
+                        html2canvas: { scale: 2, allowTaint: true, useCORS: true },
+                        jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' }
+                    };
 
-                html2pdf().set(opt).from(element).save().then(() => {
-                    console.log('PDF downloaded successfully');
-                }).catch(err => {
-                    console.error('PDF download error:', err);
-                    alert('Download started! Check your downloads folder. Error: ' + err);
-                });
+                    html2pdf().set(opt).from(element).save().then(() => {
+                        console.log('PDF downloaded successfully');
+                        alert('✅ PDF downloaded! Check your downloads folder.');
+                    }).catch(err => {
+                        console.error('PDF error:', err);
+                        alert('PDF generated! Check your downloads folder. (Error: ' + err + ')');
+                    });
+                }, 200);
             } catch(err) {
                 console.error('Error:', err);
-                alert('There was an error: ' + err.message);
+                alert('Error: ' + err.message);
             }
         }
 
         function emailPDF() {
+            // Make sure signature is synced
+            syncPreviewSignature();
+            
             let body = 'CASH RECEIPT\n\n';
             body += `Amount: ${document.getElementById('amount').value}\n`;
             body += `Driver Name: ${document.getElementById('driverName').value}\n`;
             body += `Date: ${document.getElementById('date').value}\n`;
             body += `\n✓ Driver Signature: Confirmed\n`;
             body += `Generated: ${new Date().toLocaleString()}\n`;
-            body += `\nTo attach receipt:\n1. Right-click page → Save as PDF\n2. Attach to this email`;
+            body += `\nTo attach PDF:\n1. Right-click page → Save as PDF\n2. Attach to this email`;
             
             window.location.href = `mailto:?subject=Cash Receipt - ${new Date().toLocaleDateString()}&body=${encodeURIComponent(body)}`;
         }
