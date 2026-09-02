@@ -4,19 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Digital Cash Receipt</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         
-        html, body {
+        body {
             width: 100%;
-            height: 100%;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: linear-gradient(to bottom right, #f0f9ff, #e0e7ff);
             padding: 20px;
-            overflow-x: hidden;
         }
 
-        .container { max-width: 1200px; margin: 0 auto; width: 100%; }
+        .container { max-width: 1200px; margin: 0 auto; }
         
         .header { text-align: center; margin-bottom: 30px; }
         .header h1 { font-size: 28px; color: #1f2937; margin-bottom: 10px; }
@@ -33,7 +32,6 @@
         }
 
         .card h2 { font-size: 20px; color: #1f2937; margin-bottom: 20px; }
-
         .field-item { margin-bottom: 20px; }
         .field-item label { display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 6px; }
         .field-item input { width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px; }
@@ -56,7 +54,7 @@
 
         .btn-primary { background: #3b82f6; color: white; }
         .btn-primary:hover { background: #2563eb; }
-        .btn-danger { background: #ef4444; color: white; width: 100%; padding: 12px; font-size: 15px; }
+        .btn-danger { background: #ef4444; color: white; width: 100%; padding: 12px; }
         .btn-danger:hover { background: #dc2626; }
 
         .sig-label { font-size: 12px; color: #6b7280; margin-bottom: 10px; display: block; }
@@ -71,13 +69,13 @@
             touch-action: none;
         }
         
-        #canvas { 
+        #signaturePad { 
             display: block; 
             width: 100%;
-            height: auto;
             cursor: crosshair;
             background: white;
             touch-action: none;
+            min-height: 250px;
         }
 
         .sig-status { margin-top: 12px; padding: 12px; background: #d1fae5; border: 1px solid #6ee7b7; border-radius: 6px; color: #047857; text-align: center; font-weight: 600; display: none; }
@@ -93,18 +91,26 @@
 
         .preview h1 { font-size: 24px; font-weight: bold; color: #1f2937; text-align: center; margin-bottom: 8px; }
         .preview-date { text-align: center; color: #6b7280; font-size: 12px; margin-bottom: 32px; }
-
         .preview-field { display: flex; justify-content: space-between; border-bottom: 1px solid #e5e7eb; padding-bottom: 8px; margin-bottom: 12px; font-weight: 600; }
         .preview-field span:last-child { color: #2563eb; }
 
         .preview-sig { margin-top: 48px; padding-top: 32px; border-top: 1px solid #e5e7eb; text-align: center; }
         .preview-sig p { color: #6b7280; font-size: 12px; font-weight: 600; margin-bottom: 12px; }
         .preview-sig-status { color: #059669; font-weight: bold; }
-        .preview-sig-status.pending { color: #9ca3af; font-style: italic; }
 
-        .button-group { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+        #previewSignature { 
+            display: block; 
+            width: 100%; 
+            max-width: 400px; 
+            height: 250px; 
+            border: 1px solid #ddd; 
+            border-radius: 4px;
+            margin: 0 auto;
+            background: white;
+        }
+
+        .button-group { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; margin-bottom: 20px; }
         .btn-large { padding: 12px 24px; font-size: 15px; }
-
         .btn-success { background: #10b981; color: white; }
         .btn-success:hover:not(:disabled) { background: #059669; }
         .btn:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -114,7 +120,7 @@
     <div class="container">
         <div class="header">
             <h1>💰 Digital Cash Receipt</h1>
-            <p>Driver Signature & Receipt</p>
+            <p>Driver Signature & PDF Receipt</p>
         </div>
 
         <div class="grid">
@@ -124,17 +130,17 @@
                 
                 <div class="field-item">
                     <label>Amount</label>
-                    <input type="text" id="amount" placeholder="Enter amount">
+                    <input type="text" id="amount" placeholder="Enter amount" oninput="updatePreview()">
                 </div>
 
                 <div class="field-item">
                     <label>Driver Name</label>
-                    <input type="text" id="driverName" placeholder="Enter driver name">
+                    <input type="text" id="driverName" placeholder="Enter driver name" oninput="updatePreview()">
                 </div>
 
                 <div class="field-item">
                     <label>Date</label>
-                    <input type="date" id="date">
+                    <input type="date" id="date" oninput="updatePreview()">
                 </div>
 
                 <div id="customFields"></div>
@@ -151,19 +157,19 @@
             <!-- RIGHT: SIGNATURE -->
             <div class="card">
                 <h2>Driver Signature</h2>
-                <span class="sig-label">👆 Sign here</span>
+                <span class="sig-label">👆 Sign here (or use mouse)</span>
                 
                 <div class="sig-box">
-                    <canvas id="canvas" width="300" height="250"></canvas>
+                    <canvas id="signaturePad"></canvas>
                 </div>
                 
-                <button class="btn btn-danger" onclick="clearSig()">✕ Clear Signature</button>
-                <div class="sig-status" id="sigStatus">✓ Signature Received</div>
+                <button class="btn btn-danger" onclick="clearSignature()">✕ Clear Signature</button>
+                <div class="sig-status" id="sigStatus">✓ Signature Captured</div>
             </div>
         </div>
 
-        <!-- PREVIEW -->
-        <div class="preview">
+        <!-- PREVIEW (ALSO USED FOR PDF) -->
+        <div class="preview" id="receiptPreview">
             <h1>CASH RECEIPT</h1>
             <div class="preview-date" id="previewDate"></div>
 
@@ -171,152 +177,154 @@
 
             <div class="preview-sig">
                 <p>Driver Signature:</p>
-                <p class="preview-sig-status pending" id="previewSigStatus">Awaiting signature...</p>
+                <canvas id="previewSignature"></canvas>
+                <p class="preview-sig-status" id="previewSigStatus">Awaiting signature...</p>
             </div>
         </div>
 
         <!-- BUTTONS -->
         <div class="button-group">
-            <button class="btn btn-success btn-large" id="downloadBtn" onclick="downloadReceipt()" disabled>📥 Download</button>
-            <button class="btn btn-primary btn-large" id="emailBtn" onclick="emailReceipt()" disabled>📧 Email</button>
+            <button class="btn btn-success btn-large" id="downloadBtn" onclick="downloadPDF()" disabled>📥 Download PDF</button>
+            <button class="btn btn-primary btn-large" id="emailBtn" onclick="emailPDF()" disabled>📧 Email Receipt</button>
         </div>
     </div>
 
     <script>
-        let canvas, ctx;
+        let signaturePad, signatureCtx;
+        let previewSignature, previewCtx;
         let isDrawing = false;
         let isSigned = false;
 
-        // Wait for DOM to be fully loaded
         window.addEventListener('load', function() {
-            setTimeout(initializeApp, 100);
+            initializeApp();
         });
 
         function initializeApp() {
-            canvas = document.getElementById('canvas');
+            // Setup signature pad
+            signaturePad = document.getElementById('signaturePad');
+            signatureCtx = signaturePad.getContext('2d', { willReadFrequently: true });
             
-            if (!canvas) {
-                console.error('Canvas not found');
-                return;
-            }
-
-            ctx = canvas.getContext('2d', { willReadFrequently: true });
+            // Set actual canvas size
+            signaturePad.width = signaturePad.offsetWidth;
+            signaturePad.height = 250;
             
-            // Set fixed canvas resolution
-            canvas.width = 300;
-            canvas.height = 250;
+            signatureCtx.fillStyle = '#ffffff';
+            signatureCtx.fillRect(0, 0, signaturePad.width, signaturePad.height);
+            signatureCtx.lineCap = 'round';
+            signatureCtx.lineJoin = 'round';
+            signatureCtx.lineWidth = 2.5;
+            signatureCtx.strokeStyle = '#000000';
+
+            // Setup preview signature canvas (for preview + PDF)
+            previewSignature = document.getElementById('previewSignature');
+            previewCtx = previewSignature.getContext('2d', { willReadFrequently: true });
+            previewSignature.width = 400;
+            previewSignature.height = 250;
             
-            // Make canvas fill its container width
-            canvas.style.width = '100%';
-            canvas.style.height = '250px';
-            canvas.style.display = 'block';
-
-            // Initialize drawing settings
-            ctx.lineCap = 'round';
-            ctx.lineJoin = 'round';
-            ctx.lineWidth = 3;
-            ctx.strokeStyle = '#000000';
-
-            // Clear canvas
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            previewCtx.fillStyle = '#ffffff';
+            previewCtx.fillRect(0, 0, previewSignature.width, previewSignature.height);
 
             // Attach events
-            attachCanvasEvents();
+            attachEvents();
             
-            // Set date
+            // Set today's date
             document.getElementById('date').valueAsDate = new Date();
-            
-            // Update preview
             updatePreview();
+        }
+
+        function attachEvents() {
+            // Mouse
+            signaturePad.addEventListener('mousedown', startDrawing);
+            signaturePad.addEventListener('mousemove', draw);
+            signaturePad.addEventListener('mouseup', stopDrawing);
+            signaturePad.addEventListener('mouseout', stopDrawing);
+
+            // Touch
+            signaturePad.addEventListener('touchstart', startDrawing, false);
+            signaturePad.addEventListener('touchmove', draw, false);
+            signaturePad.addEventListener('touchend', stopDrawing, false);
+        }
+
+        function getCoords(e) {
+            const rect = signaturePad.getBoundingClientRect();
+            let x, y;
             
-            console.log('App initialized successfully');
+            if (e.touches && e.touches.length > 0) {
+                x = e.touches[0].clientX - rect.left;
+                y = e.touches[0].clientY - rect.top;
+            } else {
+                x = e.clientX - rect.left;
+                y = e.clientY - rect.top;
+            }
+            
+            return { x, y };
         }
 
-        function attachCanvasEvents() {
-            // Mouse events
-            canvas.addEventListener('mousedown', handleMouseDown);
-            canvas.addEventListener('mousemove', handleMouseMove);
-            canvas.addEventListener('mouseup', handleMouseUp);
-            canvas.addEventListener('mouseout', handleMouseUp);
-
-            // Touch events
-            canvas.addEventListener('touchstart', handleTouchStart, false);
-            canvas.addEventListener('touchmove', handleTouchMove, false);
-            canvas.addEventListener('touchend', handleTouchEnd, false);
-            canvas.addEventListener('touchcancel', handleTouchEnd, false);
-        }
-
-        function getMousePos(e) {
-            const rect = canvas.getBoundingClientRect();
-            return {
-                x: (e.clientX - rect.left) * (canvas.width / rect.width),
-                y: (e.clientY - rect.top) * (canvas.height / rect.height)
-            };
-        }
-
-        function getTouchPos(e) {
-            const touch = e.touches[0];
-            const rect = canvas.getBoundingClientRect();
-            return {
-                x: (touch.clientX - rect.left) * (canvas.width / rect.width),
-                y: (touch.clientY - rect.top) * (canvas.height / rect.height)
-            };
-        }
-
-        function handleMouseDown(e) {
+        function startDrawing(e) {
+            e.preventDefault();
             isDrawing = true;
-            const pos = getMousePos(e);
-            ctx.beginPath();
-            ctx.moveTo(pos.x, pos.y);
+            const coords = getCoords(e);
+            signatureCtx.beginPath();
+            signatureCtx.moveTo(coords.x, coords.y);
         }
 
-        function handleMouseMove(e) {
+        function draw(e) {
             if (!isDrawing) return;
-            const pos = getMousePos(e);
-            ctx.lineTo(pos.x, pos.y);
-            ctx.stroke();
+            e.preventDefault();
+            
+            const coords = getCoords(e);
+            signatureCtx.lineTo(coords.x, coords.y);
+            signatureCtx.stroke();
+            
+            // Copy to preview in real-time
+            syncPreviewSignature();
             markSigned();
         }
 
-        function handleMouseUp(e) {
-            isDrawing = false;
-        }
-
-        function handleTouchStart(e) {
-            e.preventDefault();
-            isDrawing = true;
-            const pos = getTouchPos(e);
-            ctx.beginPath();
-            ctx.moveTo(pos.x, pos.y);
-        }
-
-        function handleTouchMove(e) {
-            e.preventDefault();
-            if (!isDrawing) return;
-            const pos = getTouchPos(e);
-            ctx.lineTo(pos.x, pos.y);
-            ctx.stroke();
-            markSigned();
-        }
-
-        function handleTouchEnd(e) {
+        function stopDrawing(e) {
             e.preventDefault();
             isDrawing = false;
         }
 
-        // Update preview on input change (delayed to allow initialization)
-        setTimeout(function() {
-            ['amount', 'driverName', 'date'].forEach(id => {
-                const elem = document.getElementById(id);
-                if (elem) {
-                    elem.addEventListener('input', updatePreview);
-                }
-            });
-        }, 200);
+        function syncPreviewSignature() {
+            // Copy signature to preview canvas
+            const imageData = signatureCtx.getImageData(0, 0, signaturePad.width, signaturePad.height);
+            
+            // Scale for preview
+            previewCtx.clearRect(0, 0, previewSignature.width, previewSignature.height);
+            previewCtx.fillStyle = '#ffffff';
+            previewCtx.fillRect(0, 0, previewSignature.width, previewSignature.height);
+            
+            // Draw scaled signature
+            previewCtx.drawImage(signaturePad, 0, 0, signaturePad.width, signaturePad.height, 0, 0, previewSignature.width, previewSignature.height);
+        }
+
+        function markSigned() {
+            if (!isSigned) {
+                isSigned = true;
+                document.getElementById('sigStatus').classList.add('active');
+                document.getElementById('previewSigStatus').textContent = '✓ Signature Captured';
+                document.getElementById('downloadBtn').disabled = false;
+                document.getElementById('emailBtn').disabled = false;
+            }
+        }
+
+        function clearSignature() {
+            signatureCtx.fillStyle = '#ffffff';
+            signatureCtx.fillRect(0, 0, signaturePad.width, signaturePad.height);
+            
+            previewCtx.fillStyle = '#ffffff';
+            previewCtx.fillRect(0, 0, previewSignature.width, previewSignature.height);
+            
+            isSigned = false;
+            document.getElementById('sigStatus').classList.remove('active');
+            document.getElementById('previewSigStatus').textContent = 'Awaiting signature...';
+            document.getElementById('downloadBtn').disabled = true;
+            document.getElementById('emailBtn').disabled = true;
+        }
 
         function updatePreview() {
-            let html = `
+            const html = `
                 <div class="preview-field"><span>Amount:</span><span>${document.getElementById('amount').value || '—'}</span></div>
                 <div class="preview-field"><span>Driver Name:</span><span>${document.getElementById('driverName').value || '—'}</span></div>
                 <div class="preview-field"><span>Date:</span><span>${document.getElementById('date').value || '—'}</span></div>
@@ -341,43 +349,40 @@
             updatePreview();
         }
 
-        function markSigned() {
-            if (!isSigned) {
-                isSigned = true;
-                document.getElementById('sigStatus').classList.add('active');
-                document.getElementById('previewSigStatus').textContent = '✓ Signed';
-                document.getElementById('previewSigStatus').classList.remove('pending');
-                document.getElementById('downloadBtn').disabled = false;
-                document.getElementById('emailBtn').disabled = false;
+        function downloadPDF() {
+            try {
+                const element = document.getElementById('receiptPreview');
+                const opt = {
+                    margin: 10,
+                    filename: `receipt_${new Date().getTime()}.pdf`,
+                    image: { type: 'jpeg', quality: 0.98 },
+                    html2canvas: { scale: 2 },
+                    jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' }
+                };
+
+                html2pdf().set(opt).from(element).save().then(() => {
+                    console.log('PDF downloaded successfully');
+                }).catch(err => {
+                    console.error('PDF download error:', err);
+                    alert('Download started! Check your downloads folder. Error: ' + err);
+                });
+            } catch(err) {
+                console.error('Error:', err);
+                alert('There was an error: ' + err.message);
             }
         }
 
-        function clearSig() {
-            if (!ctx || !canvas) return;
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            isSigned = false;
-            document.getElementById('sigStatus').classList.remove('active');
-            document.getElementById('previewSigStatus').textContent = 'Awaiting signature...';
-            document.getElementById('previewSigStatus').classList.add('pending');
-            document.getElementById('downloadBtn').disabled = true;
-            document.getElementById('emailBtn').disabled = true;
-        }
-
-        function downloadReceipt() {
-            alert('📥 Receipt ready!\n\nRight-click → Save as (PDF or PNG)\nOr take a screenshot!');
-        }
-
-        function emailReceipt() {
+        function emailPDF() {
             let body = 'CASH RECEIPT\n\n';
             body += `Amount: ${document.getElementById('amount').value}\n`;
             body += `Driver Name: ${document.getElementById('driverName').value}\n`;
             body += `Date: ${document.getElementById('date').value}\n`;
-            body += `\n✓ Driver Signature: Confirmed`;
-            window.location.href = `mailto:?subject=Cash Receipt&body=${encodeURIComponent(body)}`;
+            body += `\n✓ Driver Signature: Confirmed\n`;
+            body += `Generated: ${new Date().toLocaleString()}\n`;
+            body += `\nTo attach receipt:\n1. Right-click page → Save as PDF\n2. Attach to this email`;
+            
+            window.location.href = `mailto:?subject=Cash Receipt - ${new Date().toLocaleDateString()}&body=${encodeURIComponent(body)}`;
         }
-
-        // Initial preview is called in initializeApp
     </script>
 </body>
 </html>
