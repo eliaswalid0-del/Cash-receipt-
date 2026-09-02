@@ -326,21 +326,22 @@
         }
 
         function downloadPDF() {
-            const element = document.getElementById('receiptPreview');
-            const opt = {
-                margin: 10,
-                filename: `receipt_${new Date().getTime()}.pdf`,
-                image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { scale: 2, allowTaint: true, useCORS: true },
-                jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' }
-            };
-
-            html2pdf().set(opt).from(element).save().then(() => {
-                alert('✅ PDF downloaded successfully!');
-            }).catch(err => {
-                alert('PDF generated! Check your downloads folder.');
-                console.error(err);
-            });
+            alert('📥 Preparing PDF...\n\n1. A print dialog will open\n2. Select "Save as PDF"\n3. Click Save\n\nYour receipt with signature will be saved!');
+            
+            // Hide buttons and header for cleaner PDF
+            document.querySelector('.header').style.display = 'none';
+            document.querySelector('.grid').style.display = 'none';
+            document.querySelector('.button-group').style.display = 'none';
+            
+            // Open print dialog
+            window.print();
+            
+            // Show elements again after print
+            setTimeout(() => {
+                document.querySelector('.header').style.display = 'block';
+                document.querySelector('.grid').style.display = 'grid';
+                document.querySelector('.button-group').style.display = 'flex';
+            }, 1000);
         }
 
         function emailPDF() {
